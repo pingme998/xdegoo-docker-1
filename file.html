@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive Code Builder</title>
+</head>
+<body>
+    <h1>Google Drive Code Builder</h1>
+    <form id="authForm">
+        <label for="clientId">Client ID:</label>
+        <input type="text" id="clientId" name="clientId" required>
+        <br><br>
+        <label for="clientSecret">Client Secret:</label>
+        <input type="text" id="clientSecret" name="clientSecret" required>
+        <br><br>
+        <button type="button" id="generateCode">Generate Code</button>
+    </form>
+    <pre id="result"></pre>
+    <script>
+        const GIST_URL = 'https://gist.githubusercontent.com/pingme998/f06447871932834ed28c697bd47d4393/raw/165393b1ee04a2e690a50c1dec5ad664218067fe/script.js';
+
+        document.getElementById('generateCode').onclick = async () => {
+            const clientId = document.getElementById('clientId').value;
+            const clientSecret = document.getElementById('clientSecret').value;
+
+            const redirectUri = encodeURIComponent(window.location.origin + '/callback');
+            const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=https://www.googleapis.com/auth/drive`;
+
+            window.open(authUrl, 'authWindow', 'width=600,height=600');
+
+            window.addEventListener('message', async (event) => {
+                if (event.origin === window.location.origin && event.data.code) {
+                    const code = event.data.code;
+                    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: `code=${code}&client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${redirectUri}&grant_type=authorization_code`
+                    });
+
+                    const tokens = await tokenResponse.json();
+                    const accessToken = tokens.access_token;
+                    const refreshToken = tokens.refresh_token;
+
+                    const scriptResponse = await fetch(GIST_URL);
+                    let scriptContent = await scriptResponse.text();
+
+                    scriptContent = scriptContent.replace('THE_CLIENT_ID', clientId);
+                    scriptContent = scriptContent.replace('THE_CLIENT_SECRET', clientSecret);
+                    scriptContent = scriptContent.replace('THE_ACCESS_TOKEN', accessToken);
+                    scriptContent = scriptContent.replace('THE_REFRESH_TOKEN', refreshToken);
+
+                    document.getElementById('result').textContent = scriptContent;
+                }
+            }, { once: true });
+        };
+    </script>
+</body>
+</html>
